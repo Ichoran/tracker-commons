@@ -151,7 +151,7 @@
         "data_record": {
             "type":"object",
             "properties": {
-                "id": {"oneOf": [{"type":"string"},{"$ref": "#/definitions/nullable_number"}]},
+                "id": { "type":"string" },
                 "t": { "$ref": "#/definitions/element_without_aspect" },
                 "ox": { "$ref": "#/definitions/element_without_aspect" },
                 "oy": { "$ref": "#/definitions/element_without_aspect" },
