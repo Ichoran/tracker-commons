@@ -361,11 +361,11 @@ An example WCON file with a complete metadata section is given below.
         "stage":"dauer",
         "age":38.4,
         "strain":"CB4856",
-        "interpolate":{ "method":"cubic", "values":["x", "y"] },
         "protocol":[
             "dauer induction by method in J. Doe, 'Get Dauers', J. of Stuff, v1 p234",
             "worm transferred to arena 1-2 minutes before recording started"
         ],
+        "interpolate":{ "method":"cubic", "values":["x", "y"] },
         "software":{
             "name":"Suzie's Worm Knower",
             "version":"1.1.3",
@@ -395,7 +395,6 @@ All entries in the metadata object are optional.  Custom tags may be included in
 | **temperature** | The temperature at which the experiment takes place.  The units should be specified in the `units` block, but are assumed to be Celsius.  The field is single-valued. |
 | **humidity** | The relative humidity at which the experiment takes place.  Since this is normally expressed in percentage, but dimentionless units do not default to percentage, take care to specify units of `"%"` in the `units` block.  The field is single-valued. |
 | **arena** | This is a JSON object that specifies the place in which the worms are being recorded.  Subfields include _type_ which is a string description of the arena (e.g. "plate" or "slide"), _size_ which is either a single value or an array of two values which indicates the diameter or extent in each relevant direction, and _orientation_ which is a string describing how the plate or slide is oriented.  For `orientation`, use `"toward"` or `"away"` to indicate that the surface of a plate is pointing towards the camera or away from it (in the latter case one would be imaging through the agar).  The field is single-valued. |
-| **interpolate** | This is a JSON object that specifies how data may be interpolated via splines.  There are two fields: _method_ specifies the type of interpolation, e.g. `"quadratic"` or `"cubic"` for splines or `"pchip"` for piecewise cubic Hermite interpolating polynomial, and _values_ is an array of strings indicating which variables are included (in their natural pairs).  If `"t"` is included, it indicates that each other variable can be interpolated in time.  This may be arrayed to specify different interpolation for different values.  Note that WCON readers and writers are not expected to provide interpolation; this is information for analysis or visualization software. |
 | **food** | The food, if any, present during the experiment, as a JSON string.  If no food is present, and you wish others to know, write `""` or `"none"` rather than leaving the entry absent so it can be distinguished from the case where food is present but the metadata entry is not provided.  The field is single-valued. |
 | **media** | The media on which the animal is placed, as a JSON string.  The field is single-valued. |
 | **sex** | The sex of the animals, as a JSON string.  If there is a mixed population, it cannot be conveniently indicated here; instead, a custom tag should be used to specify on an animal-by-animal basis.  The field is single-valued. |
@@ -403,6 +402,7 @@ All entries in the metadata object are optional.  Custom tags may be included in
 | **age** |  The age of the animals, with time units as specified in `units`.  If used in aging studies, the value should be the total age of the animals, not "days of adulthood".  If the animals underwent an extended period of larval or dauer arrest, but are now a different stage, it is preferable to explain the details as text in the `protocol` section and leave this field blank.  The field is single-valued. |
 | **strain** | The name of the strain as a string.  It is recommended to just have the strain designation using standard nomenclature, not extended information about the genotype.  The field is single-valued. |
 | **protocol** | A text description of the protocol for the experiment.  This may be arrayed. Free-form comments regarding the experiment should typically go here. |
+| **interpolate** | This is a JSON object that specifies how data may be interpolated via splines.  There are two fields: _method_ specifies the type of interpolation, e.g. `"quadratic"` or `"cubic"` for splines or `"pchip"` for piecewise cubic Hermite interpolating polynomial, and _values_ is an array of strings indicating which variables are included (in their natural pairs).  If `"t"` is included, it indicates that each other variable can be interpolated in time.  This may be arrayed to specify different interpolation for different values.  Note that WCON readers and writers are not expected to provide interpolation; this is information for analysis or visualization software. |
 | **software** |  A JSON object that specifies relevant features of the software used to capture and/or analyze the data.  Valid subfields are _name_ (the name of the software package), _version_ (a string containing the version number), _featureID_ (an array of strings that state which custom tags the software produces, as a convenience for those wishing to know what to expect), and _settings_ which may be any JSON entity that describes parameters of the software (units will not be converted within this block).  The software field may be arrayed; the first value is presumed to be the software that captured the data, while later entries represent subsequent post-processing steps. |
 
 #### More on interpolation
