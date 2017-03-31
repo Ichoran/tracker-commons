@@ -10,11 +10,6 @@ trait MightBeEmpty[A] { self: A =>
   def nonEmptyOption: Option[A] = if (isEmpty) None else Some(this)
 }
 
-trait Customizable[A] { self: A =>
-  def custom: Json.Obj
-  def customFn(f: Json.Obj => Json.Obj): A
-}
-
 case class Laboratory(pi: String, name: String, location: String, contact: Vector[String], custom: Json.Obj)
 extends AsJson with MightBeEmpty[Laboratory] with Customizable[Laboratory] {
   def isEmpty = pi.isEmpty && name.isEmpty && location.isEmpty && contact.isEmpty && custom.size == 0
@@ -49,7 +44,7 @@ object Laboratory extends FromJson[Laboratory] {
         case Left(je) => return BAD("Invalid contact: " + je.toString)
       }
     }
-    Right(new Laboratory(pi, name, location, contact, o.filter((k,_) => k.startsWith("@"))))
+    Right(new Laboratory(pi, name, location, contact, Custom(o)))
   }
 }
 
@@ -104,7 +99,7 @@ object Arena extends FromJson[Arena] {
       }
     }
     if ((kind eq null) && (orient eq null) && (diam eq null)) return BAD("No aspects of Arena are specified (type, diameter, orient)")
-    Right(new Arena(if (kind eq null) "" else kind, diam, if (orient eq null) "" else orient, o.filter((k, _) => k.startsWith("@"))))
+    Right(new Arena(if (kind eq null) "" else kind, diam, if (orient eq null) "" else orient, Custom(o)))
   }
 }
 
@@ -177,7 +172,7 @@ object Software extends FromJson[Software] {
       case j: Json => Some(j)
       case _       => None
     }
-    Right(new Software(name, version, features, settings, o.filter{ (k,_) => k.startsWith("@") }))
+    Right(new Software(name, version, features, settings, Custom(o)))
   }
 }
 
@@ -327,8 +322,7 @@ object Metadata extends FromJson[Metadata] {
       ss
     }.result
     Right(new Metadata(
-      lab, who, timestamp, temperature, humidity, arena, food, media, sex, stage, age, strain, protocol, interpolate, software,
-      o.filter((k, _) => k.startsWith("@"))
+      lab, who, timestamp, temperature, humidity, arena, food, media, sex, stage, age, strain, protocol, interpolate, software, Custom(o)
     ))
   }
 }

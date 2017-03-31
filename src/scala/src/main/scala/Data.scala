@@ -191,7 +191,7 @@ case class Data(
 )(
   val rxs: Array[Double], val rys: Array[Double]
 )
-extends AsJson {
+extends AsJson with Customizable[Data] {
   assert(
     (ts ne null) && (xDatas ne null) && (yDatas ne null) &&
     (cxs ne null) && (cys ne null) && (oxs ne null) && (oys ne null) && (rxs ne null) && (rys ne null) &&
@@ -214,6 +214,8 @@ extends AsJson {
     perims.forall(_.length == ts.length) &&
     walks.forall(_.length == ts.length)
   )
+
+  def customFn(f: Json.Obj => Json.Obj) = copy(custom = f(custom))(rxs, rys)
 
   def n: Int = ts.length
 
@@ -736,6 +738,80 @@ object Data extends FromJson[Data] {
       }
       i += 1
     }
-    Right(new Data(id, t, x, y, cx, cy, ox, oy, opms, walk, o.filter((k,_) => k.startsWith("@")))(rx, ry))
+    Right(new Data(id, t, x, y, cx, cy, ox, oy, opms, walk, Custom(o))(rx, ry))
+  }
+
+  def join(joiner: Join, datas: Array[Data], strategy: Custom.Strategy[Data]): Custom.Lossy[Data] = {
+    if (!datas.forall(_.id == datas.head.id))
+      throw new IllegalArgumentException("Cannot join data with different IDs: " + datas.map(_.id).toSet.mkString(", "))
+    if (datas.isEmpty)
+      throw new IllegalArgumentException("Cannot join zero samples of data!")
+    val nts = joiner(datas.map(_.ts))
+    val nxd = joiner(datas.map(_.xDatas))
+    val nyd = joiner(datas.map(_.yDatas))
+    val nrx = joiner(datas.map(_.rxs))
+    val nry = joiner(datas.map(_.rys))
+    val ncx = 
+      if (datas.forall(_.cxs.length == 0)) Data.empty.cxs
+      else joiner(datas.map(di => if (di.cxs.length == 0) Array.fill(di.ts.length)(Double.NaN) else di.cxs))
+    val ncy = 
+      if (datas.forall(_.cys.length == 0)) Data.empty.cys
+      else joiner(datas.map(di => if (di.cys.length == 0) Array.fill(di.ts.length)(Double.NaN) else di.cys))
+    val nox =
+      if (datas.forall(_.oxs.length == 0)) Data.empty.oxs
+      else joiner(datas.map(di => if (di.oxs.length == 0) Array.fill(di.ts.length)(Double.NaN) else di.oxs))
+    val noy =
+      if (datas.forall(_.oys.length == 0)) Data.empty.oys
+      else joiner(datas.map(di => if (di.oys.length == 0) Array.fill(di.ts.length)(Double.NaN) else di.oys))
+    val npm =
+      if (datas.forall(_.perims.isEmpty)) Data.empty.perims
+      else Some(joiner(datas.map(di => di.perims getOrElse Array.fill(di.ts.length)(PerimeterPoints.empty))))
+    val nwk =
+      if (datas.forall(_.walks.isEmpty)) Data.empty.walks
+      else Some(joiner(datas.map(di => di.walks getOrElse Array.fill(di.ts.length)(PixelWalk.empty))))
+    strategy.merge(datas, joiner, datas.map(_.custom)).map(cst =>
+      new Data(datas.head.id, nts, nxd, nyd, ncx, ncy, nox, noy, npm, nwk, cst)(nrx, nry)
+    )
+  }
+
+  def reshape(reshaper: Reshape, data: Data, strategy: Custom.Strategy[Data]): Custom.Lossy[Data] = {
+    val nts = reshaper(data.ts)
+    val nxd = reshaper(data.xDatas)
+    val nyd = reshaper(data.yDatas)
+    val nrx = reshaper(data.rxs)
+    val nry = reshaper(data.rys)
+    val ncx = if (data.cxs.length > 0) reshaper(data.cxs) else data.cxs
+    val ncy = if (data.cys.length > 0) reshaper(data.cys) else data.cys
+    val nox = if (data.oxs.length > 0) reshaper(data.oxs) else data.oxs
+    val noy = if (data.oys.length > 0) reshaper(data.oys) else data.oys
+    val npm = data.perims.map(pms => reshaper(pms))
+    val nwk = data.walks.map(wks => reshaper(wks))
+    strategy.split(data, reshaper, data.custom).map(cst =>
+      new Data(data.id, nts, nxd, nyd, ncx, ncy, nox, noy, npm, nwk, cst)(nrx, nry)
+    )
+  }
+
+  val Discard = new Custom.Discard[Data](_.ts.length)
+  val Expand = new Custom.Expand[Data](_.ts.length)
+
+  private def unpackLossy(lossy: Custom.Lossy[Data]): Either[Data, Data] = {
+    if (lossy.isDisaster) throw new IllegalArgumentException(f"Unrecoverable picking error")
+    if (lossy.isIncomplete) Left(lossy.best)
+    else Right(lossy.best)
+  }
+
+  def groupById(datas: Array[Data], strategy: Custom.Strategy[Data] = Discard): Array[Either[Data, Data]] =
+    datas.groupBy(_.id).map{ case (_, vs) =>
+      unpackLossy( join(Join sort vs.map(_.ts), vs, strategy) )
+    }.toArray
+  def selectTime(data: Data, tmin: Double, tmax: Double, strategy: Custom.Strategy[Data] = Discard): Either[Data, Data] = {
+    unpackLossy( reshape(Reshape select data.ts.map(t => tmin <= t && t <= tmax), data, strategy) )
+  }
+  def merge(datas: Array[Data], strategy: Custom.Strategy[Data] = Discard): Either[Data, Data] = {
+    unpackLossy( join(Join sort datas.map(_.ts), datas, strategy) )
+  }
+  def pick(data: Data, index: Int, strategy: Custom.Strategy[Data] = Discard): Either[Data, Data] = {
+    if (index < 0 || index >= data.ts.length) throw new IndexOutOfBoundsException(f"Indexed to $index with ${data.ts.length} timepoints")
+    unpackLossy( reshape(Reshape single index, data, strategy) )
   }
 }
